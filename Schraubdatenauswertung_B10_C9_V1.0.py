@@ -17,6 +17,7 @@ save_path = 0
 calendarweek = 0
 year = 0
 rob_nums = ["Rob_8_1", "Rob_8_2", "Rob_8_3", "Rob_9_1", "Rob_9_2", "Rob_9_3"]
+variant = 0
 
 #function definitions
 def open_xlsx_files():
@@ -44,6 +45,7 @@ def build_dataframe():
     global rob_nums
     global df
     global calendarweek
+    global front_back
     list_of_df = []
     calendarweek_status = 0
     expected_columns = 10
@@ -52,9 +54,10 @@ def build_dataframe():
         messagebox.showerror("Keine Daten ausgewählt", "Es wurden keine Daten zur Auswertung ausgewählt!")
         return
     else:
+        front_back = front_back_check()
         for file in file_paths:
             try:
-                df = pd.read_excel(file, usecols = [0, 2, 3, 4, 14, 15, 16, 17, 18, 19], header = None, skiprows = 2)
+                df = pd.read_excel(file, usecols = [0, 2, 3, 4, 14, 15, 16, 17, 18, 19], header = None, skiprows = 1)
                 
                 if df.shape[1] != expected_columns:
                     raise ValueError(f"Datei '{os.path.basename(file)}' hat {df.shape[1]} Spalten, erwartet wurden {expected_columns}.")
@@ -73,8 +76,9 @@ def build_dataframe():
                 "Drehmoment NOK", "Drehwinkel NOK", "Roboternummer"]
         df.columns = header
         calendarweek_status = calendarweek_check()
+        
         if calendarweek_status == 1:
-            messagebox.showinfo("Datenstruktur erfolgreich", f"Es wurde erfolgreich die Datenstruktur der KW{calendarweek} aufgebaut")
+            messagebox.showinfo("Datenstruktur erfolgreich", f"Es wurde erfolgreich die Datenstruktur der Variante {front_back} der KW{calendarweek} aufgebaut")
         else:
             messagebox.showerror("Fehler beim Aufbau der Datenstruktur", "Es konnte keine Datenstruktur aufgebaut werden, da die Datensätze nicht aus der selben Kalenderwoche sind!")
             df = 0
@@ -92,7 +96,14 @@ def calendarweek_check():
         return 1
     else:
         return 0
-    
+
+def front_back_check():
+    path_parts = file_paths[0]
+    path_parts = os.path.normpath(path_parts).split(os.sep)
+    front_back_keywords = ["Hintertür", "Vordertür"]
+    front_back = next((part for part in path_parts if part in front_back_keywords), "Unbekannt")
+    return front_back
+
 def select_save_path():
     global save_path
     #get saveing directory from user input
@@ -109,24 +120,51 @@ def main_filter_func():
     list_of_df_weekly = []
     list_of_plots = []
     list_of_variants = ["B10", "C9"]
-    if save_path and calendarweek != 0:
-        for variant in list_of_variants:
-            if variant == "B10":
-                df_filtered = df[df["Programmnummer"] < 100]
-                fig = create_failure_plot(df_filtered, variant)        
-                df_grouped_detailed = create_detailed_dataframe(df_filtered)
-                df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
-                list_of_plots.append(fig)
-                list_of_df_daily.append(df_grouped_detailed)
-                list_of_df_weekly.append(df_grouped_detailed_weekly)
-            else:
-                df_filtered = df[df["Programmnummer"] >= 100]
-                fig = create_failure_plot(df_filtered, variant)        
-                df_grouped_detailed = create_detailed_dataframe(df_filtered)
-                df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
-                list_of_plots.append(fig)
-                list_of_df_daily.append(df_grouped_detailed)
-                list_of_df_weekly.append(df_grouped_detailed_weekly)
+    if save_path and calendarweek and front_back != 0:
+        if front_back == "Vordertür":
+            for variant in list_of_variants:
+                if variant == "B10":
+                    df_filtered = df[df["Programmnummer"] < 111]
+                    fig = create_failure_plot(df_filtered, variant)        
+                    df_grouped_detailed = create_detailed_dataframe(df_filtered)
+                    df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
+                    list_of_plots.append(fig)
+                    list_of_df_daily.append(df_grouped_detailed)
+                    list_of_df_weekly.append(df_grouped_detailed_weekly)
+                else:
+                    df_filtered = df[df["Programmnummer"] >= 111]
+                    fig = create_failure_plot(df_filtered, variant)        
+                    df_grouped_detailed = create_detailed_dataframe(df_filtered)
+                    df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
+                    list_of_plots.append(fig)
+                    list_of_df_daily.append(df_grouped_detailed)
+                    list_of_df_weekly.append(df_grouped_detailed_weekly)
+        elif front_back == "Hintertür":
+            for variant in list_of_variants:
+                if variant == "B10":
+                    df_rob_8_2 = df[df["Roboternummer"] == "Rob_8_2"]
+                    df_other_robs = df[df["Roboternummer"] != "Rob_8_2"]
+                    df_rob_8_2 = df_rob_8_2[df_rob_8_2["Programmnummer"] < 20]
+                    df_other_robs = df_other_robs[df_other_robs["Programmnummer"]< 111]
+                    df_filtered = pd.concat([df_rob_8_2, df_other_robs], ignore_index = True)
+                    fig = create_failure_plot(df_filtered, variant)        
+                    df_grouped_detailed = create_detailed_dataframe(df_filtered)
+                    df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
+                    list_of_plots.append(fig)
+                    list_of_df_daily.append(df_grouped_detailed)
+                    list_of_df_weekly.append(df_grouped_detailed_weekly)
+                else:
+                    df_rob_8_2 = df[df["Roboternummer"] == "Rob_8_2"]
+                    df_other_robs = df[df["Roboternummer"] != "Rob_8_2"]
+                    df_rob_8_2 = df_rob_8_2[df_rob_8_2["Programmnummer"] > 20]
+                    df_other_robs = df_other_robs[df_other_robs["Programmnummer"] > 111]
+                    df_filtered = pd.concat([df_rob_8_2, df_other_robs], ignore_index = True)
+                    fig = create_failure_plot(df_filtered, variant)        
+                    df_grouped_detailed = create_detailed_dataframe(df_filtered)
+                    df_grouped_detailed_weekly = create_detailed_dataframe_weekly(df_filtered)
+                    list_of_plots.append(fig)
+                    list_of_df_daily.append(df_grouped_detailed)
+                    list_of_df_weekly.append(df_grouped_detailed_weekly)
         #plot and dataframe export
         create_export(list_of_df_daily, list_of_df_weekly, list_of_plots)
         messagebox.showinfo("Export erfolgreich", "Der Export wurde erfolgreich durchgeführt.")
@@ -185,7 +223,7 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
     df_weekly_b10 = list_of_df_weekly[0]
     df_weekly_c9 = list_of_df_weekly[1]
     
-    save_name = f"{save_path}/Schraubreport_KW{calendarweek}_{year}.xlsx"
+    save_name = f"{save_path}/Schraubreport_{front_back}_KW{calendarweek}_{year}.xlsx"
     with pd.ExcelWriter(save_name) as writer:
         df_daily_b10.to_excel(writer, sheet_name = "B10 daily")
         df_weekly_b10.to_excel(writer, sheet_name = "B10 weekly")
@@ -213,7 +251,7 @@ if __name__ == "__main__":
     #Setup Main Window
     root = tk.Tk()
     root.title("B10/C9 Schraubauswertung")
-    root.geometry("320x300")
+    root.geometry("350x320")
     root.resizable(False, False)
     #iconbitmap does not work with .exe build without bigger changes
     #root.iconbitmap("ressources/logo_yf.ico")
@@ -253,34 +291,34 @@ if __name__ == "__main__":
     btn_submit_xlsx = ttk.Button(
         frame_xlsx,
         text="Erstelle Datenstruktur",
-        command= build_dataframe       #build_dataframe
+        command= build_dataframe       
     )
     btn_submit_xlsx.grid(row=1, column=0, columnspan = 2, sticky="ew", pady=10)
-
+    
     #Separator
-    ttk.Separator(root, orient="horizontal") \
-        .grid(row=1, column=0, sticky="ew", pady=15)
+    ttk.Separator(frame_xlsx, orient="horizontal") \
+        .grid(row=5, column=0, sticky="ew", pady=15, columnspan = 2)
 
-    btn_select_path = ttk.Button(root,
+    btn_select_path = ttk.Button(frame_xlsx,
                             text="📂 Speicherpfad auswählen",
                             command=select_save_path)
-    btn_select_path.grid(row=6, column=0, sticky="ew")
+    btn_select_path.grid(row=6, column=0, sticky="ew", columnspan = 2)
 
     #Export
-    btn_export = ttk.Button(root,
+    btn_export = ttk.Button(frame_xlsx,
                             text="Export starten",
                             command=main_filter_func,
                             style="Export.TButton")
-    btn_export.grid(row=7, column=0, pady=20, sticky="ew")
+    btn_export.grid(row=7, column=0, pady=20, sticky="ew", columnspan = 2)
 
     #Separator
-    ttk.Separator(root, orient="horizontal") \
-        .grid(row=8, column=0, sticky="ew", pady=15)
+    ttk.Separator(frame_xlsx, orient="horizontal") \
+        .grid(row=8, column=0, sticky="ew", pady=15, columnspan = 2)
 
     #Author + Version
-    lbl_version = ttk.Label(root,
-                            text="Phillip Kusinski, V1.0",
+    lbl_version = ttk.Label(frame_xlsx,
+                            text="Phillip Kusinski, V1.1",
                             style="TLabel") 
-    lbl_version.grid(row=9, column=0, sticky="e")
+    lbl_version.grid(row=9, column=1, sticky="e")
 
     root.mainloop()
