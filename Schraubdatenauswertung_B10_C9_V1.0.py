@@ -35,7 +35,7 @@ def open_xlsx_files():
             if file.endswith(".xlsx"):
                 file_paths.append(os.path.join(root, file))
     #failure message 
-    if len(file_paths) > 32:
+    if len(file_paths) > 35:
         messagebox.showwarning("Zu viele Dateien", "Bitte wählen Sie maximal 32 .xlsx-Dateien aus")
         return
 
@@ -218,6 +218,9 @@ def create_detailed_dataframe_weekly(df_filtered):
     return df_grouped_detailed_weekly
 
 def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
+    sheet_names_weekly = ["B10 weekly", "C9 weekly"]
+    sheet_names_daily = ["B10 daily", "C9 daily"]
+    
     df_daily_b10 = list_of_df_daily[0]
     df_daily_c9 = list_of_df_daily[1]
     df_weekly_b10 = list_of_df_weekly[0]
@@ -225,15 +228,79 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
     
     save_name = f"{save_path}/Schraubreport_{front_back}_KW{calendarweek}_{year}.xlsx"
     with pd.ExcelWriter(save_name) as writer:
-        df_daily_b10.to_excel(writer, sheet_name = "B10 daily")
-        df_weekly_b10.to_excel(writer, sheet_name = "B10 weekly")
-        df_daily_c9.to_excel(writer, sheet_name = "C9 daily")
-        df_weekly_c9.to_excel(writer, sheet_name = "C9 weekly")
+        df_daily_b10.to_excel(writer, sheet_name = sheet_names_daily[0])
+        df_weekly_b10.to_excel(writer, sheet_name = sheet_names_weekly[0])
+        df_daily_c9.to_excel(writer, sheet_name = sheet_names_daily[1])
+        df_weekly_c9.to_excel(writer, sheet_name = sheet_names_weekly[1])
 
+        #format seetings for failure porcent coloring
         workbook = writer.book
-        sheet_names = ["B10 weekly", "C9 weekly"]
-        target_cells = ["A7", "A7"]  
-        for fig, sheet, cell in zip(list_of_plots, sheet_names, target_cells):
+        green_format = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
+        red_format = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+        yellow_format = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500'})
+
+        #loop aggregation for coloring cells in col "Fehler in %" weekly
+        for sheet_name, df in zip(sheet_names_weekly, list_of_df_weekly):
+            worksheet = writer.sheets[sheet_name]
+            try:
+                col_index = df.columns.get_loc("Fehler in %")  
+                excel_col_letter = chr(ord('A') + col_index + 1)   
+                cell_range = f"{excel_col_letter}2:{excel_col_letter}6"
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': '>=',
+                    'value': 0.5,
+                    'format': red_format
+                })
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': 0.2001,
+                    'maximum': 0.4999,
+                    'format': yellow_format
+                })
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': '<=',
+                    'value': 0.2,
+                    'format': green_format
+                })
+            except KeyError:
+                print(f"Spalte 'Fehler in %' nicht gefunden in {sheet_name}")
+            
+        #loop aggregation for coloring cells in col "Fehler in %" daily
+        for sheet_name, df in zip(sheet_names_daily, list_of_df_daily):
+            worksheet = writer.sheets[sheet_name]
+            try:
+                col_index = df.columns.get_loc("Fehler in %")  
+                excel_col_letter = chr(ord('A') + col_index + 2)   
+                row_start = 2
+                row_end = len(df) + 1
+                cell_range = f"{excel_col_letter}{row_start}:{excel_col_letter}{row_end}"
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': '>=',
+                    'value': 0.5,
+                    'format': red_format
+                })
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': 0.2001,
+                    'maximum': 0.4999,
+                    'format': yellow_format
+                })
+                worksheet.conditional_format(cell_range, {
+                    'type': 'cell',
+                    'criteria': '<=',
+                    'value': 0.2,
+                    'format': green_format
+                })
+            except KeyError:
+                print(f"Spalte 'Fehler in %' nicht gefunden in {sheet_name}")
+          
+        target_cells_plot = ["A7", "A7"]  
+        for fig, sheet, cell in zip(list_of_plots, sheet_names_weekly, target_cells_plot):
             image_stream = BytesIO()
             fig.savefig(image_stream, format='png', dpi=300, bbox_inches='tight')
             image_stream.seek(0)
@@ -246,7 +313,6 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
                 "x_scale": 0.5,
                 "y_scale": 0.5
             })
-
 if __name__ == "__main__":  
     #Setup Main Window
     root = tk.Tk()
