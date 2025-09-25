@@ -192,7 +192,7 @@ def create_failure_plot(df_filtered, variant):
     ax = pivot_df.plot(kind="bar", figsize=(12, 6))
     plt.axhline(0.2, color='red', linestyle='--', linewidth = 2)
     plt.ylabel("Fehleranteil in %")
-    plt.title(f"Variante = {variant}, Kalenderwoche = {calendarweek}, Absoluter Fehleranteil in % pro Roboter")
+    plt.title(f"Variante = {variant} {front_back}, Kalenderwoche = {calendarweek}, Absoluter Fehleranteil in % pro Roboter")
     plt.xticks(rotation=0)
     plt.legend(title="Roboternummer", framealpha = 1)
 
@@ -241,7 +241,7 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
 
         #loop aggregation for coloring cells in col "Fehler in %" weekly
         for sheet_name, df in zip(sheet_names_weekly, list_of_df_weekly):
-            worksheet = writer.sheets[sheet_name]
+            worksheet = writer.sheets[sheet_name]  
             try:
                 col_index = df.columns.get_loc("Fehler in %")  
                 excel_col_letter = chr(ord('A') + col_index + 1)   
@@ -271,6 +271,7 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
         #loop aggregation for coloring cells in col "Fehler in %" daily
         for sheet_name, df in zip(sheet_names_daily, list_of_df_daily):
             worksheet = writer.sheets[sheet_name]
+                
             try:
                 col_index = df.columns.get_loc("Fehler in %")  
                 excel_col_letter = chr(ord('A') + col_index + 2)   
@@ -313,6 +314,7 @@ def create_export(list_of_df_daily, list_of_df_weekly, list_of_plots):
                 "x_scale": 0.5,
                 "y_scale": 0.5
             })
+            
 if __name__ == "__main__":  
     #Setup Main Window
     root = tk.Tk()
